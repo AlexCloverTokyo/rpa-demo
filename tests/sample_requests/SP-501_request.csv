@@ -1,0 +1,4 @@
+申請種別,ユーザー名,メールアドレス,部署,レポート,エクスポート,承認者
+アカウント作成,multi_user_001,multi001@example.com,営業部,○,,
+権限追加,,multi001@example.com,,,○,
+権限追加,,multi001@example.com,,,,○

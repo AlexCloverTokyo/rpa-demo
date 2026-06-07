@@ -1,0 +1,46 @@
+# Claude Code ローカル設定（リポジトリに含めない）
+CLAUDE.md
+
+# 機密・認証情報（絶対にコミットしない）
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+credentials.*
+secrets.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# RPA runtime outputs（実行時生成ファイル、コミット不要）
+rpa/results/*.json
+rpa/results/*.png
+rpa/results/notifications.log
+rpa/inbox/*.csv
+rpa/processed/*.csv
+rpa/error/*.csv
+rpa/error/*.log
+rpa/error/recovery/
+
+mockdb.sqlite
+
+# UI verification screenshots（開発時の手動確認用、コミット不要）
+tests/screenshots/*.png

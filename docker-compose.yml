@@ -1,0 +1,19 @@
+services:
+  mock-site:
+    build:
+      context: .
+      dockerfile: mock_site/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./chaos_config.yaml:/app/chaos_config.yaml
+    environment:
+      DATABASE_URL: sqlite:///./mockdb.sqlite
+      MOCK_SITE_USER: admin
+      MOCK_SITE_PASSWORD: admin
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s

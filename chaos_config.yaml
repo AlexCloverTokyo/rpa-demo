@@ -1,0 +1,14 @@
+chaos:
+  enabled: false
+  rules:
+    - path: "/accounts"
+      method: "POST"
+      fault: "timeout"
+      probability: 0.3
+    - path: "/accounts"
+      method: "POST"
+      fault: "error_500"
+      probability: 0.2
+
+selector_chaos:
+  enabled: false   # true にするとアカウント作成フォームの送信ボタン ID が変わる

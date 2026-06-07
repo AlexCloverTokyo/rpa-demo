@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>社内アカウント管理システム</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    #login-screen { transition: opacity .4s ease; }
+    #login-screen.out { opacity: 0; pointer-events: none; }
+    .toggle-knob { transition: transform .15s; }
+    #chaos-indicator { display: none; }
+    #chaos-indicator.visible { display: flex; }
+  </style>
+</head>
+<body class="bg-slate-100 font-sans text-sm text-slate-800" x-data="app()" x-init="init()" x-cloak>
+
+  <!-- Playwright compat: hidden section markers (showView sets .active on these) -->
+  <section id="section-accounts" class="view active" style="display:none"></section>
+  <section id="section-create"   class="view"        style="display:none"></section>
+  <section id="section-permissions" class="view"     style="display:none"></section>
+  <p id="status-msg" style="display:none"></p>
+  <p id="error-msg"  style="display:none"></p>
+
+  <!-- ===== LOGIN SCREEN ===== -->
+  <div id="login-screen"
+       class="fixed inset-0 z-50 flex items-center justify-center"
+       style="background:linear-gradient(135deg,#0f172a 0%,#1a3a5c 55%,#0f172a 100%)">
+    <div class="bg-white rounded-2xl p-10 w-96 shadow-2xl">
+      <div class="text-center mb-8">
+        <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-3 shadow-lg">
+          <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+          </svg>
+        </div>
+        <h1 class="text-lg font-bold text-slate-900">社内アカウント管理システム</h1>
+        <p class="text-xs text-slate-500 mt-1">Enterprise Account Portal</p>
+      </div>
+      <form id="login-form" @submit.prevent="doLogin()">
+        <div class="mb-4">
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">ユーザー名</label>
+          <input id="username" x-model="loginForm.username" type="text" required
+            class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+            placeholder="admin">
+        </div>
+        <div class="mb-5">
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">パスワード</label>
+          <input id="password" x-model="loginForm.password" type="password" required
+            class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+            placeholder="••••••••">
+        </div>
+        <p id="login-error" x-show="loginError" x-text="loginError"
+           class="text-red-500 text-xs mb-3 min-h-[1rem]"></p>
+        <button type="submit" :disabled="loginLoading"
+          class="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm">
+          <span x-text="loginLoading ? 'ログイン中...' : 'ログイン'"></span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== MAIN CONTENT (hidden until login) ===== -->
+  <div id="main-content" class="opacity-0 transition-opacity duration-300" :class="loginDone && 'opacity-100 !important'">
+
+    <!-- TOP NAVBAR -->
+    <header class="fixed top-0 left-0 right-0 h-12 bg-white border-b border-slate-200 flex items-center px-4 z-30 shadow-sm">
+      <div class="flex items-center gap-3 w-52 flex-shrink-0">
+        <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow">
+          <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+          </svg>
+        </div>
+        <span class="font-bold text-slate-900 text-sm">社内アカウント管理</span>
+      </div>
+      <div class="flex-1"></div>
+      <div class="flex items-center gap-3">
+        <div id="chaos-indicator" :class="chaosOn && 'visible'"
+          class="items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-700 text-xs px-2.5 py-1 rounded-full font-medium">
+          ⚠️ Chaos Mode: ON
+        </div>
+        <div class="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold"
+             id="user-avatar" x-text="userAvatar"></div>
+        <span class="text-xs text-slate-600" id="user-display" x-text="userName"></span>
+      </div>
+    </header>
+
+    <!-- SIDEBAR -->
+    <aside class="fixed top-12 left-0 bottom-0 w-52 bg-slate-900 text-slate-400 text-xs flex flex-col z-20">
+      <nav class="flex-1 py-3">
+        <div class="px-4 py-1.5 mb-1 text-xs text-slate-600 uppercase tracking-wider font-semibold">管理メニュー</div>
+        <a class="nav-link flex items-center gap-2.5 px-4 py-2 bg-blue-500/15 text-blue-400 border-l-2 border-blue-400 font-medium"
+           data-view="accounts" href="#accounts">
+          <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+          </svg>
+          アカウント管理
+        </a>
+        <a class="flex items-center gap-2.5 px-4 py-2 mt-0.5 opacity-40 cursor-not-allowed" href="#">
+          <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+          </svg>
+          ダッシュボード
+          <span class="ml-auto bg-slate-700 text-slate-500 px-1.5 py-0.5 rounded text-xs">準備中</span>
+        </a>
+        <a class="flex items-center gap-2.5 px-4 py-2 mt-0.5 opacity-40 cursor-not-allowed" href="#">
+          <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
+          </svg>
+          設定
+          <span class="ml-auto bg-slate-700 text-slate-500 px-1.5 py-0.5 rounded text-xs">準備中</span>
+        </a>
+      </nav>
+      <div class="p-3 border-t border-slate-800">
+        <div class="flex items-center gap-2">
+          <div class="sb-avatar w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold"
+               x-text="userAvatar"></div>
+          <div>
+            <div class="sb-user-name text-slate-200 text-xs font-medium" x-text="userName"></div>
+            <div class="sb-user-role text-slate-500 text-xs">システム管理者</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN AREA -->
+    <main class="ml-52 mt-12 p-6 min-h-screen">
+      <!-- Page header -->
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h1 class="text-lg font-bold text-slate-900">アカウント管理</h1>
+          <p class="text-xs text-slate-500 mt-0.5">社内ユーザーアカウントの作成・権限管理</p>
+        </div>
+        <button id="new-user-btn" @click="openCreate()"
+          class="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-2 rounded-lg shadow-sm transition-colors">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          </svg>
+          新規ユーザー登録
+        </button>
+      </div>
+
+      <!-- Table card -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+        <!-- Toolbar -->
+        <div class="flex items-center gap-3 px-4 py-3 border-b border-slate-100 flex-wrap gap-y-2">
+          <div class="relative flex-1 min-w-[200px] max-w-xs">
+            <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input id="account-search" x-model="search" @input="page=1" type="text"
+              placeholder="名前・メールで検索…"
+              class="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400">
+            <button x-show="search || filterStatus" @click="search=''; filterStatus=''; page=1"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-base leading-none">×</button>
+          </div>
+          <select x-model="filterStatus" @change="page=1"
+            class="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white">
+            <option value="">全ステータス</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <div class="flex-1"></div>
+          <button x-show="selected.length > 0" @click="bulkDeleteRow()"
+            class="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 border border-red-200 bg-red-50 hover:bg-red-100 rounded-lg px-2.5 py-1.5 transition-colors font-medium">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            <span x-text="selected.length + '件を削除'"></span>
+          </button>
+          <span id="account-count" x-text="filtered.length + '件'"
+            class="text-xs text-slate-400 whitespace-nowrap min-w-[32px]"></span>
+          <button id="refresh-btn" @click="loadAccounts()"
+            class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-2.5 py-1.5 transition-colors bg-white">
+            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            </svg>
+            更新
+          </button>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+          <table id="accounts-table" class="w-full">
+            <thead>
+              <tr class="text-xs text-slate-500 bg-slate-50 border-b border-slate-100">
+                <th class="px-3 py-2.5 w-8">
+                  <input type="checkbox" :checked="allChecked" @change="toggleAll()"
+                    class="rounded w-3.5 h-3.5 cursor-pointer accent-blue-600">
+                </th>
+                <th class="px-3 py-2.5 text-left font-medium w-14">ID</th>
+                <th class="px-3 py-2.5 text-left font-medium">ユーザー名</th>
+                <th class="px-3 py-2.5 text-left font-medium">メールアドレス</th>
+                <th class="px-3 py-2.5 text-left font-medium">部署</th>
+                <th class="px-3 py-2.5 text-left font-medium">権限</th>
+                <th class="px-3 py-2.5 text-left font-medium">作成日時</th>
+                <th class="px-3 py-2.5 text-center font-medium">Active</th>
+                <th class="px-3 py-2.5 text-center font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody id="accounts-body">
+              <template x-for="row in paginated" :key="row.id">
+                <tr class="border-b border-slate-50 hover:bg-slate-50/70 transition-colors"
+                  :class="selected.includes(row.id) ? 'bg-blue-50/40' : ''">
+                  <td class="px-3 py-2.5">
+                    <input type="checkbox"
+                      :checked="selected.includes(row.id)"
+                      @change="selected.includes(row.id) ? selected = selected.filter(id => id !== row.id) : selected.push(row.id)"
+                      class="rounded w-3.5 h-3.5 cursor-pointer accent-blue-600">
+                  </td>
+                  <td class="px-3 py-2.5 text-slate-400 text-xs font-mono" x-text="row.id"></td>
+                  <td class="px-3 py-2.5 font-medium text-slate-800 text-xs max-w-[10rem]">
+                    <div class="truncate" :title="row.username" x-text="row.username"></div>
+                  </td>
+                  <td class="px-3 py-2.5 text-slate-500 text-xs max-w-[14rem]">
+                    <div class="truncate" :title="row.email" x-text="row.email"></div>
+                  </td>
+                  <td class="px-3 py-2.5 text-slate-500 text-xs" x-text="row.department"></td>
+                  <td class="px-3 py-2.5">
+                    <div class="flex gap-1 flex-wrap">
+                      <template x-for="p in (row.permissions || [])" :key="p">
+                        <span class="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                          :class="{
+                            'bg-amber-50 text-amber-700': p === 'approver',
+                            'bg-violet-50 text-violet-700': p === 'export',
+                            'bg-blue-50 text-blue-600': p === 'report'
+                          }"
+                          x-text="p === 'report' ? 'レポート' : p === 'export' ? 'エクスポート' : p === 'approver' ? '承認者' : p"></span>
+                      </template>
+                      <span x-show="!row.permissions || row.permissions.length === 0" class="text-xs text-slate-300">—</span>
+                    </div>
+                  </td>
+                  <td class="px-3 py-2.5 text-slate-400 text-xs"
+                    x-text="row.created_at ? row.created_at.slice(0,16).replace('T',' ') : '—'"></td>
+                  <td class="px-3 py-2.5 text-center">
+                    <button @click="toggleStatus(row)"
+                      class="relative inline-flex w-8 h-4 rounded-full transition-colors duration-150 focus:outline-none"
+                      :class="row.status === 'active' ? 'bg-green-500' : 'bg-slate-300'">
+                      <span class="toggle-knob absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm"
+                        :class="row.status === 'active' ? 'translate-x-4' : 'translate-x-0.5'"></span>
+                    </button>
+                  </td>
+                  <td class="px-3 py-2.5">
+                    <div class="flex items-center justify-center gap-1.5">
+                      <button @click="openEdit(row)" :id="'perm-btn-' + row.username"
+                        class="text-xs px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors font-medium">編集</button>
+                      <button @click="deleteRow(row)"
+                        class="text-xs px-2 py-1 rounded-md bg-red-50 hover:bg-red-100 text-red-500 transition-colors font-medium">削除</button>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="filtered.length === 0">
+                <td colspan="9" class="text-center py-12 text-slate-400 text-xs">データなし</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+          <span class="text-xs text-slate-400">
+            全 <span x-text="filtered.length"></span> 件 /
+            <span x-text="Math.ceil(filtered.length / perPage) || 1"></span> ページ
+          </span>
+          <div class="flex gap-1" x-show="Math.ceil(filtered.length / perPage) > 1">
+            <button @click="page = Math.max(1, page - 1)" :disabled="page === 1"
+              class="w-7 h-7 flex items-center justify-center rounded-md border border-slate-200 text-xs text-slate-500 disabled:opacity-30 hover:bg-slate-50 transition-colors">‹</button>
+            <template x-for="p in Math.ceil(filtered.length / perPage)" :key="p">
+              <button @click="page = p"
+                class="w-7 h-7 flex items-center justify-center rounded-md border text-xs font-medium transition-colors"
+                :class="page === p ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 text-slate-500 hover:bg-slate-50'"
+                x-text="p"></button>
+            </template>
+            <button @click="page = Math.min(Math.ceil(filtered.length / perPage), page + 1)"
+              :disabled="page >= Math.ceil(filtered.length / perPage)"
+              class="w-7 h-7 flex items-center justify-center rounded-md border border-slate-200 text-xs text-slate-500 disabled:opacity-30 hover:bg-slate-50 transition-colors">›</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== MODAL: Create / Edit ===== -->
+  <div x-show="modal.open && modal.type === 'create'"
+       x-transition:enter="transition ease-out duration-150"
+       x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-100"
+       x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+       @mousedown.self="_mbd = true" @click.self="if (_mbd) modal.open = false; _mbd = false" style="display:none">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6" @mousedown="_mbd = false">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-bold text-slate-900 text-base"
+          x-text="modal.type === 'create' ? 'アカウント作成' : 'アカウント編集'"></h2>
+        <button @click="modal.open = false"
+          class="w-7 h-7 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 text-xl leading-none">×</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+            ユーザー名 <span class="text-red-400">*</span>
+          </label>
+          <input id="new-username" x-model="modal.data.username" :disabled="modal.type === 'edit'" type="text"
+            maxlength="100"
+            @input="delete modal.errors.username"
+            :class="modal.errors.username ? 'border-red-300 focus:ring-red-500/20 focus:border-red-400' : 'border-slate-200 focus:ring-blue-500/20 focus:border-blue-400'"
+            class="w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 disabled:bg-slate-50 disabled:text-slate-400"
+            placeholder="例: tanaka.taro">
+          <div class="flex justify-between items-start mt-1">
+            <p x-show="modal.errors.username" x-text="modal.errors.username" class="text-red-500 text-xs"></p>
+            <p class="text-xs ml-auto tabular-nums"
+               :class="modal.data.username.length > 95 ? 'text-red-500' : modal.data.username.length > 80 ? 'text-orange-400' : 'text-slate-400'"
+               x-show="modal.data.username.length > 0"
+               x-text="modal.data.username.length + '/100'"></p>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+            メールアドレス <span class="text-red-400">*</span>
+          </label>
+          <input id="new-email" x-model="modal.data.email" type="email"
+            maxlength="200"
+            @input="delete modal.errors.email"
+            :class="modal.errors.email ? 'border-red-300 focus:ring-red-500/20 focus:border-red-400' : 'border-slate-200 focus:ring-blue-500/20 focus:border-blue-400'"
+            class="w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2"
+            placeholder="例: tanaka@company.com">
+          <p x-show="modal.errors.email" x-text="modal.errors.email" class="text-red-500 text-xs mt-1"></p>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+            部署 <span class="text-red-400">*</span>
+          </label>
+          <div class="relative" @click.outside="deptOpen = false">
+            <button type="button" id="new-department" @click="deptOpen = !deptOpen"
+              class="w-full flex items-center justify-between border rounded-lg px-3 py-2.5 text-sm bg-white text-left focus:outline-none focus:ring-2 transition-colors"
+              :class="modal.errors.department ? 'border-red-300 focus:ring-red-500/20' : 'border-slate-200 focus:ring-blue-500/20 hover:border-slate-300'">
+              <span :class="modal.data.department ? 'text-slate-800' : 'text-slate-400'"
+                x-text="modal.data.department || '-- 部署を選択 --'"></span>
+              <svg class="w-4 h-4 text-slate-400 flex-shrink-0 transition-transform duration-150"
+                :class="deptOpen ? 'rotate-180' : ''"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            <div x-show="deptOpen"
+              x-transition:enter="transition ease-out duration-100"
+              x-transition:enter-start="opacity-0 -translate-y-1" x-transition:enter-end="opacity-100 translate-y-0"
+              class="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
+              <template x-for="dept in ['営業部','開発部','人事部','経理部','マーケティング部']" :key="dept">
+                <button type="button"
+                  @click="modal.data.department = dept; deptOpen = false; delete modal.errors.department"
+                  class="w-full text-left px-3 py-2.5 text-sm transition-colors"
+                  :class="modal.data.department === dept ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-slate-50'"
+                  x-text="dept"></button>
+              </template>
+            </div>
+          </div>
+          <p x-show="modal.errors.department" x-text="modal.errors.department" class="text-red-500 text-xs mt-1"></p>
+        </div>
+        <div x-show="modal.type === 'create'">
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">初期権限</label>
+          <div class="flex gap-3" id="permissions-group">
+            <label class="flex items-center gap-1.5 cursor-pointer select-none p-2.5 rounded-lg hover:bg-blue-50 border border-slate-200 flex-1 justify-center"
+              :class="modal.data.permissions.includes('report') ? 'border-blue-300 bg-blue-50' : ''">
+              <input type="checkbox" class="permission-checkbox rounded w-3.5 h-3.5 accent-blue-600"
+                value="report" x-model="modal.data.permissions">
+              <span class="text-xs font-medium text-blue-700">レポート</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer select-none p-2.5 rounded-lg hover:bg-violet-50 border border-slate-200 flex-1 justify-center"
+              :class="modal.data.permissions.includes('export') ? 'border-violet-300 bg-violet-50' : ''">
+              <input type="checkbox" class="permission-checkbox rounded w-3.5 h-3.5 accent-violet-600"
+                value="export" x-model="modal.data.permissions">
+              <span class="text-xs font-medium text-violet-700">エクスポート</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer select-none p-2.5 rounded-lg hover:bg-amber-50 border border-slate-200 flex-1 justify-center"
+              :class="modal.data.permissions.includes('approver') ? 'border-amber-300 bg-amber-50' : ''">
+              <input type="checkbox" class="permission-checkbox rounded w-3.5 h-3.5 accent-amber-600"
+                value="approver" x-model="modal.data.permissions">
+              <span class="text-xs font-medium text-amber-700">承認者</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-2 mt-6 justify-end">
+        <button @click="modal.open = false" :disabled="modal.submitting"
+          class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50">キャンセル</button>
+        <button id="create-btn" @click="submitModal()" :disabled="modal.submitting"
+          class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60 flex items-center gap-1.5"
+          x-text="modal.submitting ? '保存中...' : (modal.type === 'create' ? 'アカウント作成' : '更新')"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: Edit (unified: edit + permissions) ===== -->
+  <div x-show="modal.open && (modal.type === 'edit' || modal.type === 'permissions')"
+       x-transition:enter="transition ease-out duration-150"
+       x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-100"
+       x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+       @mousedown.self="_mbd = true" @click.self="if (_mbd) modal.open = false; _mbd = false" style="display:none">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6" @mousedown="_mbd = false">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-bold text-slate-900 text-base">アカウント編集</h2>
+        <button @click="modal.open = false"
+          class="w-7 h-7 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 text-xl leading-none">×</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+            ユーザー名 <span class="text-red-400">*</span>
+          </label>
+          <input id="target-username" x-model="modal.data.username" type="text"
+            maxlength="100"
+            @input="delete modal.errors.username"
+            :class="modal.errors.username ? 'border-red-300 focus:ring-red-500/20 focus:border-red-400' : 'border-slate-200 focus:ring-blue-500/20 focus:border-blue-400'"
+            class="w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2"
+            placeholder="例: tanaka.taro">
+          <div class="flex justify-between items-start mt-1">
+            <p x-show="modal.errors.username" x-text="modal.errors.username" class="text-red-500 text-xs"></p>
+            <p class="text-xs ml-auto tabular-nums"
+               :class="modal.data.username.length > 95 ? 'text-red-500' : modal.data.username.length > 80 ? 'text-orange-400' : 'text-slate-400'"
+               x-show="modal.data.username.length > 0"
+               x-text="modal.data.username.length + '/100'"></p>
+          </div>
+        </div>
+        <div x-show="modal.type === 'edit'">
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+            メールアドレス <span class="text-red-400">*</span>
+          </label>
+          <input x-model="modal.data.email" type="email"
+            maxlength="200"
+            @input="delete modal.errors.email"
+            :class="modal.errors.email ? 'border-red-300 focus:ring-red-500/20 focus:border-red-400' : 'border-slate-200 focus:ring-blue-500/20 focus:border-blue-400'"
+            class="w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2"
+            placeholder="例: tanaka@company.com">
+          <p x-show="modal.errors.email" x-text="modal.errors.email" class="text-red-500 text-xs mt-1"></p>
+        </div>
+        <div x-show="modal.type === 'edit'">
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+            部署 <span class="text-red-400">*</span>
+          </label>
+          <div class="relative" @click.outside="deptOpen = false">
+            <button type="button" @click="deptOpen = !deptOpen"
+              class="w-full flex items-center justify-between border rounded-lg px-3 py-2.5 text-sm bg-white text-left focus:outline-none focus:ring-2 transition-colors"
+              :class="modal.errors.department ? 'border-red-300 focus:ring-red-500/20' : 'border-slate-200 focus:ring-blue-500/20 hover:border-slate-300'">
+              <span :class="modal.data.department ? 'text-slate-800' : 'text-slate-400'"
+                x-text="modal.data.department || '-- 部署を選択 --'"></span>
+              <svg class="w-4 h-4 text-slate-400 flex-shrink-0 transition-transform duration-150"
+                :class="deptOpen ? 'rotate-180' : ''"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            <div x-show="deptOpen"
+              x-transition:enter="transition ease-out duration-100"
+              x-transition:enter-start="opacity-0 -translate-y-1" x-transition:enter-end="opacity-100 translate-y-0"
+              class="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
+              <template x-for="dept in ['営業部','開発部','人事部','経理部','マーケティング部']" :key="dept">
+                <button type="button"
+                  @click="modal.data.department = dept; deptOpen = false; delete modal.errors.department"
+                  class="w-full text-left px-3 py-2.5 text-sm transition-colors"
+                  :class="modal.data.department === dept ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-slate-50'"
+                  x-text="dept"></button>
+              </template>
+            </div>
+          </div>
+          <p x-show="modal.errors.department" x-text="modal.errors.department" class="text-red-500 text-xs mt-1"></p>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">権限</label>
+          <div class="flex gap-2" id="change-permissions-group">
+            <label class="flex items-center gap-1.5 cursor-pointer select-none p-2.5 rounded-lg hover:bg-blue-50 border border-slate-200 flex-1 justify-center"
+              :class="modal.data.permissions.includes('report') ? 'border-blue-300 bg-blue-50' : ''">
+              <input type="checkbox" class="change-permission-checkbox rounded w-3.5 h-3.5 accent-blue-600"
+                value="report" x-model="modal.data.permissions">
+              <span class="text-xs font-medium text-blue-700">レポート</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer select-none p-2.5 rounded-lg hover:bg-violet-50 border border-slate-200 flex-1 justify-center"
+              :class="modal.data.permissions.includes('export') ? 'border-violet-300 bg-violet-50' : ''">
+              <input type="checkbox" class="change-permission-checkbox rounded w-3.5 h-3.5 accent-violet-600"
+                value="export" x-model="modal.data.permissions">
+              <span class="text-xs font-medium text-violet-700">エクスポート</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer select-none p-2.5 rounded-lg hover:bg-amber-50 border border-slate-200 flex-1 justify-center"
+              :class="modal.data.permissions.includes('approver') ? 'border-amber-300 bg-amber-50' : ''">
+              <input type="checkbox" class="change-permission-checkbox rounded w-3.5 h-3.5 accent-amber-600"
+                value="approver" x-model="modal.data.permissions">
+              <span class="text-xs font-medium text-amber-700">承認者</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-2 mt-6 justify-end">
+        <button @click="modal.open = false" :disabled="modal.submitting"
+          class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50">キャンセル</button>
+        <button id="change-btn" @click="modal.type === 'edit' ? submitEdit() : submitPermissions()"
+          :disabled="modal.submitting"
+          class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60"
+          x-text="modal.submitting ? '保存中...' : '保存'"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: Delete Confirmation ===== -->
+  <div x-show="deleteModal.open"
+       x-transition:enter="transition ease-out duration-150"
+       x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-100"
+       x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+       @mousedown.self="_mbd = true" @click.self="if (_mbd) deleteModal.open = false; _mbd = false" style="display:none">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6" @mousedown="_mbd = false">
+      <div class="flex flex-col items-center text-center gap-3 mb-5">
+        <div class="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+          <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="font-bold text-slate-900 text-base"
+            x-text="deleteModal.bulk ? selected.length + '件を一括削除しますか？' : 'アカウントを削除しますか？'"></h2>
+          <p class="text-xs text-slate-500 mt-1" x-show="!deleteModal.bulk">
+            <span class="font-semibold text-slate-700 break-all" x-text="deleteModal.row?.username"></span>
+            を削除します。この操作は取り消せません。
+          </p>
+          <p class="text-xs text-slate-500 mt-1" x-show="deleteModal.bulk">
+            選択した <span class="font-semibold text-slate-700" x-text="selected.length"></span> 件を削除します。この操作は取り消せません。
+          </p>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button @click="deleteModal.open = false"
+          class="flex-1 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors font-medium border border-slate-200">キャンセル</button>
+        <button @click="confirmDelete()"
+          class="flex-1 px-4 py-2.5 text-sm bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors">削除する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TOAST ===== -->
+  <div id="toast" x-show="toast.show" x-text="toast.msg"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0 translate-y-2"
+       x-transition:enter-end="opacity-100 translate-y-0"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white max-w-xs break-all"
+       :class="toast.type === 'success' ? 'bg-green-600' : 'bg-red-500'"
+       style="display:none"></div>
+
+  <script>
+    const API = '';
+
+    // Global function for Playwright RPA compatibility.
+    // Sets .active on hidden section markers (Playwright waits on these),
+    // then dispatches event for Alpine.js to open the appropriate modal.
+    function showView(id) {
+      document.querySelectorAll('.view').forEach(s => s.classList.remove('active'));
+      const section = document.getElementById('section-' + id);
+      if (section) section.classList.add('active');
+      document.dispatchEvent(new CustomEvent('rpa-showview', { detail: id }));
+    }
+
+    function app() {
+      return {
+        loginDone: false,
+        loginLoading: false,
+        loginForm: { username: '', password: '' },
+        loginError: '',
+        userName: '',
+        userAvatar: 'A',
+        chaosOn: false,
+        accounts: [],
+        search: '',
+        filterStatus: '',
+        page: 1,
+        perPage: 10,
+        selected: [],
+        deptOpen: false,
+        modal: { open: false, type: '', data: {}, errors: {}, submitting: false },
+        deleteModal: { open: false, row: null, bulk: false },
+        toast: { show: false, type: 'success', msg: '' },
+        _mbd: false,
+
+        get filtered() {
+          const q = this.search.toLowerCase();
+          return this.accounts.filter(a => {
+            const matchQ = !q || a.username.toLowerCase().includes(q) || a.email.toLowerCase().includes(q);
+            const matchS = !this.filterStatus || a.status === this.filterStatus;
+            return matchQ && matchS;
+          });
+        },
+
+        get paginated() {
+          const start = (this.page - 1) * this.perPage;
+          return this.filtered.slice(start, start + this.perPage);
+        },
+
+        get allChecked() {
+          return this.paginated.length > 0 && this.paginated.every(r => this.selected.includes(r.id));
+        },
+
+        get someChecked() {
+          return this.paginated.some(r => this.selected.includes(r.id));
+        },
+
+        init() {
+          window._app = this;
+          document.addEventListener('rpa-showview', e => {
+            const id = e.detail;
+            if (id === 'create') {
+              this.openCreate();
+            } else if (id === 'permissions') {
+              this.modal = { open: true, type: 'permissions', data: { username: '', permissions: [] }, errors: {}, submitting: false };
+            } else {
+              this.modal.open = false;
+            }
+          });
+        },
+
+        async doLogin() {
+          this.loginLoading = true;
+          this.loginError = '';
+          try {
+            const r = await fetch(API + '/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.loginForm),
+            });
+            if (r.ok) {
+              this.userName = this.loginForm.username;
+              this.userAvatar = this.loginForm.username.charAt(0).toUpperCase();
+              this.loginDone = true;
+              const lg = document.getElementById('login-screen');
+              lg.classList.add('out');
+              lg.addEventListener('transitionend', () => { lg.style.display = 'none'; }, { once: true });
+              await this.loadAccounts();
+              fetch(API + '/chaos/status')
+                .then(r => r.json())
+                .then(d => {
+                  this.chaosOn = d.enabled || d.selector_chaos;
+                  if (d.selector_chaos) {
+                    const btn = document.getElementById('create-btn');
+                    if (btn) btn.id = 'btn_submit_20240101';
+                  }
+                })
+                .catch(() => {})
+                .finally(() => {
+                  document.body.setAttribute('data-chaos-loaded', 'true');
+                });
+            } else {
+              this.loginError = 'ユーザー名またはパスワードが違います';
+            }
+          } catch {
+            this.loginError = 'ネットワークエラー';
+          } finally {
+            this.loginLoading = false;
+          }
+        },
+
+        async loadAccounts() {
+          const r = await fetch(API + '/accounts');
+          this.accounts = await r.json();
+          const maxPage = Math.ceil(this.filtered.length / this.perPage) || 1;
+          if (this.page > maxPage) this.page = maxPage;
+        },
+
+        openCreate() {
+          document.querySelectorAll('.view').forEach(s => s.classList.remove('active'));
+          document.getElementById('section-create').classList.add('active');
+          this.modal = { open: true, type: 'create', data: { username: '', email: '', department: '', permissions: [] }, errors: {}, submitting: false };
+        },
+
+        openEdit(row) {
+          document.querySelectorAll('.view').forEach(s => s.classList.remove('active'));
+          document.getElementById('section-permissions').classList.add('active');
+          this.modal = {
+            open: true, type: 'edit',
+            data: {
+              originalUsername: row.username,
+              username: row.username,
+              email: row.email,
+              department: row.department,
+              permissions: [...(row.permissions || [])],
+            },
+            errors: {}, submitting: false,
+          };
+        },
+
+        openPermission(row) {
+          document.querySelectorAll('.view').forEach(s => s.classList.remove('active'));
+          document.getElementById('section-permissions').classList.add('active');
+          this.modal = { open: true, type: 'permissions', data: { username: row.username, permissions: [...(row.permissions || [])] }, errors: {}, submitting: false };
+        },
+
+        async toggleStatus(row) {
+          const next = row.status === 'active' ? 'inactive' : 'active';
+          const r = await fetch(`${API}/accounts/${row.username}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: next }),
+          });
+          if (r.ok) {
+            row.status = next;
+            this.showToast('success', `${row.username} を ${next} に変更しました`);
+          } else {
+            this.showToast('error', 'ステータス変更に失敗しました');
+          }
+        },
+
+        validateForm() {
+          const d = this.modal.data;
+          const e = {};
+          const uname = d.username.trim();
+          if (!uname) {
+            e.username = 'ユーザー名は必須です';
+          } else if (uname.length > 100) {
+            e.username = 'ユーザー名は100文字以内で入力してください';
+          }
+          const email = d.email.trim();
+          if (!email) {
+            e.email = 'メールアドレスは必須です';
+          } else if (email.length > 200) {
+            e.email = 'メールアドレスは200文字以内で入力してください';
+          } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            e.email = 'メールアドレスの形式が正しくありません';
+          }
+          if (this.modal.type !== 'permissions' && !d.department?.trim()) e.department = '部署は必須です';
+          this.modal.errors = e;
+          return Object.keys(e).length === 0;
+        },
+
+        async submitModal() {
+          if (!this.validateForm()) return;
+          this.modal.submitting = true;
+          const d = this.modal.data;
+          try {
+            const r = await fetch(`${API}/accounts`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username: d.username.trim(), email: d.email.trim(),
+                department: d.department.trim(), permissions: d.permissions,
+              }),
+            });
+            if (r.ok) {
+              await this.loadAccounts();
+              this.modal.open = false;
+              this.showToast('success', '作成完了');
+              document.getElementById('status-msg').textContent = '作成完了';
+            } else {
+              const err = await r.json().catch(() => ({}));
+              const msg = err.detail || '作成に失敗しました';
+              if (typeof msg === 'string' && msg.includes('Email')) {
+                this.modal.errors = { email: 'このメールアドレスはすでに使用されています' };
+              } else {
+                this.showToast('error', msg);
+              }
+              document.getElementById('error-msg').textContent = typeof msg === 'string' ? msg : '作成に失敗しました';
+            }
+          } finally {
+            this.modal.submitting = false;
+          }
+        },
+
+        async submitEdit() {
+          if (!this.validateForm()) return;
+          this.modal.submitting = true;
+          const d = this.modal.data;
+          const origUser = d.originalUsername || d.username;
+          try {
+            const r = await fetch(`${API}/accounts/${origUser}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username: d.username.trim(),
+                email: d.email.trim(),
+                department: d.department.trim(),
+                permissions: d.permissions,
+              }),
+            });
+            if (r.ok) {
+              await this.loadAccounts();
+              this.modal.open = false;
+              this.showToast('success', '更新しました');
+            } else {
+              const err = await r.json().catch(() => ({}));
+              const msg = err.detail || '更新に失敗しました';
+              if (typeof msg === 'string' && msg.includes('Email')) {
+                this.modal.errors = { email: 'このメールアドレスはすでに使用されています' };
+              } else {
+                this.showToast('error', msg);
+              }
+            }
+          } finally {
+            this.modal.submitting = false;
+          }
+        },
+
+        async submitPermissions() {
+          const d = this.modal.data;
+          if (!d.username.trim()) {
+            this.modal.errors = { username: 'ユーザー名は必須です' };
+            return;
+          }
+          this.modal.submitting = true;
+          try {
+            const r = await fetch(`${API}/accounts/${d.username}/permissions`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ permissions: d.permissions }),
+            });
+            if (r.ok) {
+              await this.loadAccounts();
+              this.modal.open = false;
+              this.showToast('success', '権限変更完了');
+              document.getElementById('status-msg').textContent = '権限変更完了';
+            } else {
+              this.showToast('error', '権限変更に失敗しました');
+              document.getElementById('error-msg').textContent = '権限変更に失敗しました';
+            }
+          } finally {
+            this.modal.submitting = false;
+          }
+        },
+
+        toggleAll() {
+          const ids = this.paginated.map(r => r.id);
+          if (this.allChecked) {
+            this.selected = this.selected.filter(id => !ids.includes(id));
+          } else {
+            this.selected = [...new Set([...this.selected, ...ids])];
+          }
+        },
+
+        deleteRow(row) {
+          this.deleteModal = { open: true, row, bulk: false };
+        },
+
+        bulkDeleteRow() {
+          this.deleteModal = { open: true, row: null, bulk: true };
+        },
+
+        async confirmDelete() {
+          if (this.deleteModal.bulk) {
+            this.deleteModal.open = false;
+            const ids = [...this.selected];
+            const accounts = ids.map(id => this.accounts.find(a => a.id === id)).filter(Boolean);
+            await Promise.all(accounts.map(a => fetch(`${API}/accounts/${a.username}`, { method: 'DELETE' })));
+            this.selected = [];
+            await this.loadAccounts();
+            this.showToast('success', `${ids.length}件を削除しました`);
+          } else {
+            const row = this.deleteModal.row;
+            this.deleteModal.open = false;
+            const r = await fetch(`${API}/accounts/${row.username}`, { method: 'DELETE' });
+            if (r.ok) {
+              this.accounts = this.accounts.filter(a => a.id !== row.id);
+              const maxPage = Math.ceil(this.filtered.length / this.perPage) || 1;
+              if (this.page > maxPage) this.page = maxPage;
+              this.showToast('success', `${row.username} を削除しました`);
+            } else {
+              this.showToast('error', '削除に失敗しました');
+            }
+          }
+        },
+
+        showToast(type, msg) {
+          this.toast = { show: true, type, msg };
+          setTimeout(() => { this.toast.show = false; }, 2500);
+        },
+      };
+    }
+  </script>
+</body>
+</html>
