@@ -213,8 +213,8 @@ Changes take effect automatically on the next request — no container restart n
 このプロジェクトについて2つの記事を近日公開予定です。
 Two articles about this project are coming soon.
 
-- **Qiita**（近日公開 / coming soon）— 技術実装の詳細 / Implementation details（Power Apps + Power Automate + Playwright + Teams 全チェーン / full chain）
-- **Zenn**（近日公開 / coming soon）— 設計判断のストーリー / Design decisions（なぜこの構成か・実運用で気づいたこと / why this architecture · lessons from production）
+- **Qiita**（[年間数千万円の外注費をゼロに、Power Apps申請からPlaywright自動実行までの全チェーン設計](https://qiita.com/AlexClover/items/2e3809d836484409bbdb)）— 技術実装の詳細 / Implementation details（Power Apps + Power Automate + Playwright + Teams 全チェーン / full chain）
+- **Zenn**（[年間数千万円の外注費をゼロに——なぜPlaywrightをMicrosoft 365の後段に置いたのか](https://zenn.dev/alexclover/articles/7a2fffa4fa2459)）— 設計判断のストーリー / Design decisions（なぜこの構成か・実運用で気づいたこと / why this architecture · lessons from production）
 
 ---
 
