@@ -155,6 +155,30 @@ def _get_account_by_email(email: str, mock_url: str) -> dict | None:
         return None
 
 
+def _ui_find_account(page: Page, email: str) -> dict | None:
+    """Search the accounts list via the search box and read the matching row.
+    / 検索バーでメール完全一致のアカウントを探し、テーブルから読み取る。見つからない場合はNone。"""
+    _refresh_accounts(page)
+    page.fill("#account-search", email)
+
+    page.wait_for_function(
+        """(email) => document.querySelector('#accounts-body').dataset.search === email""",
+        arg=email,
+        timeout=VERIFY_TIMEOUT_MS,
+    )
+
+    row = page.locator(f'#accounts-body tr:has(td:nth-child(4) div[title="{_css_escape_attr(email)}"])')
+    if row.count() == 0:
+        page.fill("#account-search", "")
+        return None
+
+    result = _read_account_row(row)
+    result["email"] = email
+
+    page.fill("#account-search", "")
+    return result
+
+
 # ---------------------------------------------------------------------------
 # UI verification after RPA operations
 # ---------------------------------------------------------------------------
