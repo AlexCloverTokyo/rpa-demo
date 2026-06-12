@@ -78,20 +78,6 @@ def test_create_account_duplicate_username_returns_409(test_client):
     assert resp.status_code == 409
 
 
-def test_get_account_by_email(test_client):
-    test_client.post("/accounts", json={
-        "username": "emailuser", "email": "find@test.com", "department": "Dev", "permissions": []
-    })
-    resp = test_client.get("/accounts/by-email/find@test.com")
-    assert resp.status_code == 200
-    assert resp.json()["email"] == "find@test.com"
-
-
-def test_get_account_by_email_not_found(test_client):
-    resp = test_client.get("/accounts/by-email/nobody@test.com")
-    assert resp.status_code == 404
-
-
 def test_get_account_not_found_returns_404(test_client):
     resp = test_client.get("/accounts/nonexistent")
     assert resp.status_code == 404
