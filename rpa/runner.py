@@ -171,11 +171,11 @@ def _process_row(page, row: dict, screenshot_dir=None) -> dict:
     / CSV1行を対応するRPAタスクにディスパッチする。"""
     req_type = row.get(COL_REQUEST_TYPE, "")
     if req_type == REQ_CREATE:
-        return create_account(page, row, mock_url=MOCK_URL, screenshot_dir=screenshot_dir)
+        return create_account(page, row, screenshot_dir=screenshot_dir)
     elif req_type == REQ_ADD:
-        return add_permission(page, row, mock_url=MOCK_URL, screenshot_dir=screenshot_dir)
+        return add_permission(page, row, screenshot_dir=screenshot_dir)
     elif req_type == REQ_REMOVE:
-        return remove_permission(page, row, mock_url=MOCK_URL, screenshot_dir=screenshot_dir)
+        return remove_permission(page, row, screenshot_dir=screenshot_dir)
     # Unknown request type — treated as an error row
     # 不明な申請種別はエラー扱い
     return {

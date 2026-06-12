@@ -157,7 +157,7 @@ def _row_remove(sp_id: str, email: str, report="", export="", approver="") -> di
 def test_create_account_success(browser_page):
     result = create_account(browser_page, _row_create(
         "SP-TEST-01", TEST_USERNAME, TEST_EMAIL, "開発部", report="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "success"
     assert result["id"] == "SP-TEST-01"
 
@@ -166,7 +166,7 @@ def test_create_account_idempotent(browser_page):
     """User already exists → skipped regardless of permissions."""
     result = create_account(browser_page, _row_create(
         "SP-TEST-02", TEST_USERNAME, TEST_EMAIL, "開発部", report="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "skipped"
     assert result["reason"] == "already_exists"
 
@@ -175,7 +175,7 @@ def test_create_account_missing_fields(browser_page):
     """Missing required fields → error before any browser interaction."""
     result = create_account(browser_page, _row_create(
         "SP-TEST-07", "missing_fields_user", "", "開発部"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "error"
     assert "メールアドレス" in result["message"]
 
@@ -186,7 +186,7 @@ def test_create_account_missing_fields(browser_page):
 def test_create_account_missing_username(browser_page):
     result = create_account(browser_page, _row_create(
         "SP-TEST-A1", "", "missing_name@test.com", "開発部"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "error"
     assert "ユーザー名" in result["message"]
 
@@ -197,7 +197,7 @@ def test_create_account_missing_username(browser_page):
 def test_create_account_missing_department(browser_page):
     result = create_account(browser_page, _row_create(
         "SP-TEST-A2", "missing_dept_user", "missing_dept@test.com", ""
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "error"
     assert "部署" in result["message"]
 
@@ -208,7 +208,7 @@ def test_create_account_missing_department(browser_page):
 def test_create_account_all_required_empty(browser_page):
     result = create_account(browser_page, _row_create(
         "SP-TEST-A3", "", "", ""
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "error"
     assert "ユーザー名"     in result["message"]
     assert "メールアドレス" in result["message"]
@@ -225,7 +225,7 @@ def test_create_account_no_permissions(browser_page):
     result = create_account(browser_page, _row_create(
         "SP-TEST-AN1", TEST_USERNAME_NOPERMS, TEST_EMAIL_NOPERMS, "総務部"
         # all perm cols default to "" (no ○)
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "success"
     # Verify via API that user exists with empty permissions
     resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_USERNAME_NOPERMS}", timeout=5.0)
@@ -240,7 +240,7 @@ def test_create_account_no_permissions(browser_page):
 def test_add_permission_success(browser_page):
     result = add_permission(browser_page, _row_add(
         "SP-TEST-03", TEST_EMAIL, approver="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "success"
     assert result["id"] == "SP-TEST-03"
     assert "perms_before" in result
@@ -252,7 +252,7 @@ def test_add_permission_already_granted(browser_page):
     """All requested permissions already present → skipped."""
     result = add_permission(browser_page, _row_add(
         "SP-TEST-04", TEST_EMAIL, approver="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "skipped"
     assert result["reason"] == "already_granted"
     assert result["perms_before"] == result["perms_after"]
@@ -262,7 +262,7 @@ def test_add_permission_user_not_found(browser_page):
     """Non-existent email → error with account_not_found."""
     result = add_permission(browser_page, _row_add(
         "SP-TEST-05", "nonexistent_xyz@test.com", report="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "error"
     assert result["message"] == "account_not_found"
 
@@ -271,7 +271,7 @@ def test_add_permission_multiple(browser_page):
     """Grant multiple permissions at once."""
     result = add_permission(browser_page, _row_add(
         "SP-TEST-06", TEST_EMAIL, report="○", export="○", approver="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] in ("success", "skipped")
 
 
@@ -279,7 +279,7 @@ def test_add_permission_missing_email(browser_page):
     """Empty email → error before any browser interaction."""
     result = add_permission(browser_page, _row_add(
         "SP-TEST-08", "", report="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "error"
     assert "メールアドレス" in result["message"]
 
@@ -291,7 +291,7 @@ def test_add_permission_no_perms_error(browser_page):
     """No permissions in CSV row → error with '権限列がすべて空です'."""
     result = add_permission(browser_page, _row_add(
         "SP-TEST-A4", TEST_EMAIL  # all perm cols empty
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "error"
     assert "権限列がすべて空です" in result["message"]
 
@@ -304,12 +304,12 @@ def test_add_permission_partial_add(browser_page):
     """Add one permission while keeping the existing one (grant-only)."""
     res = create_account(browser_page, _row_create(
         "SP-TEST-A5-0", TEST_USERNAME_A5, TEST_EMAIL_A5, "開発部", report="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert res["status"] == "success", f"Setup failed: {res}"
 
     result = add_permission(browser_page, _row_add(
         "SP-TEST-A5-1", TEST_EMAIL_A5, approver="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "success"
 
     resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_USERNAME_A5}", timeout=5.0)
@@ -327,7 +327,7 @@ def test_add_permission_fresh_user_zero_perms(browser_page, fresh_user_no_perms)
     """Add first-ever permission to a user who has none (new-user onboarding flow)."""
     result = add_permission(browser_page, _row_add(
         "SP-TEST-AN2", fresh_user_no_perms, export="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "success"
     assert result["perms_before"] == [], f"new user should have no prior perms, got {result['perms_before']}"
     assert "export" in result["perms_after"]
@@ -345,7 +345,7 @@ def test_add_permission_inactive_account(browser_page, inactive_test_user):
     """add_permission to an inactive account must be rejected."""
     result = add_permission(browser_page, _row_add(
         "SP-TEST-AN3", inactive_test_user, export="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "error"
     assert "無効" in result["message"], f"Expected inactive error, got: {result['message']}"
     # Confirm the account's permissions are unchanged (still [report])
@@ -371,7 +371,7 @@ def remove_test_user(browser_page):
     res = create_account(browser_page, _row_create(
         "SP-TEST-R0", TEST_USERNAME_R, TEST_EMAIL_R, "開発部",
         report="○", export="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert res["status"] == "success", f"Remove-user setup failed: {res}"
     return TEST_EMAIL_R
 
@@ -381,7 +381,7 @@ def test_remove_permission_success(browser_page, remove_test_user):
     State: [report, export] → [export]"""
     result = remove_permission(browser_page, _row_remove(
         "SP-TEST-R1", remove_test_user, report="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "success"
     assert "perms_before" in result
     assert "perms_after"  in result
@@ -400,7 +400,7 @@ def test_remove_permission_already_removed(browser_page, remove_test_user):
     State: [export] (report was removed in R1)"""
     result = remove_permission(browser_page, _row_remove(
         "SP-TEST-R2", remove_test_user, report="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "skipped"
     assert result["reason"] == "already_removed"
     assert result["perms_before"] == result["perms_after"]
@@ -412,11 +412,11 @@ def test_remove_permission_partial_overlap(browser_page, remove_test_user):
     # grant approver first so we have something to remove
     add_permission(browser_page, _row_add(
         "SP-TEST-R3-setup", remove_test_user, approver="○"
-    ), mock_url=MOCK_URL)
+    ))
 
     result = remove_permission(browser_page, _row_remove(
         "SP-TEST-R3", remove_test_user, report="○", approver="○"
-    ), mock_url=MOCK_URL)
+    ))
     # report is already gone; approver is present → success, removes approver
     assert result["status"] == "success"
     assert "approver" not in result["perms_after"]
@@ -432,7 +432,7 @@ def test_remove_permission_remove_all(browser_page, remove_test_user):
     """Remove the last remaining permission; result must be an empty list."""
     result = remove_permission(browser_page, _row_remove(
         "SP-TEST-RN1", remove_test_user, export="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "success"
     assert result["perms_after"] == [], f"Expected [], got {result['perms_after']}"
     # Cross-verify via API
@@ -446,7 +446,7 @@ def test_remove_permission_user_not_found(browser_page):
     """Non-existent email → error with account_not_found."""
     result = remove_permission(browser_page, _row_remove(
         "SP-TEST-R4", "nonexistent_xyz@test.com", report="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "error"
     assert result["message"] == "account_not_found"
 
@@ -455,7 +455,7 @@ def test_remove_permission_missing_email(browser_page):
     """Empty email → error before any browser interaction."""
     result = remove_permission(browser_page, _row_remove(
         "SP-TEST-R5", "", report="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "error"
     assert "メールアドレス" in result["message"]
 
@@ -464,7 +464,7 @@ def test_remove_permission_no_perms_error(browser_page):
     """No permissions marked → error with '権限列がすべて空です'."""
     result = remove_permission(browser_page, _row_remove(
         "SP-TEST-R6", TEST_EMAIL  # all perm cols empty
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "error"
     assert "権限列がすべて空です" in result["message"]
 
@@ -480,7 +480,7 @@ def test_remove_permission_inactive_allowed(browser_page, inactive_test_user):
     """remove_permission on an inactive account must succeed (unlike add)."""
     result = remove_permission(browser_page, _row_remove(
         "SP-TEST-RN2", inactive_test_user, report="○"
-    ), mock_url=MOCK_URL)
+    ))
     assert result["status"] == "success", \
         f"Expected success for inactive remove, got: {result}"
     assert "report" not in result["perms_after"]
@@ -558,8 +558,7 @@ class TestLengthValidation:
 
     def test_create_username_too_long(self):
         """create_account with 101-char username returns error before browser opens."""
-        result = create_account(None, self._row_create(**{COL_USERNAME: "a" * (MAX_USERNAME_LEN + 1)}),
-                                mock_url="http://not-used")
+        result = create_account(None, self._row_create(**{COL_USERNAME: "a" * (MAX_USERNAME_LEN + 1)}))
         assert result["status"] == "error"
         assert "長すぎます" in result["message"]
         assert "ユーザー名" in result["message"]
@@ -567,8 +566,7 @@ class TestLengthValidation:
     def test_create_email_too_long(self):
         """create_account with 201-char email returns error before browser opens."""
         long_email = "b" * (MAX_EMAIL_LEN - 11) + "@example.com"
-        result = create_account(None, self._row_create(**{COL_EMAIL: long_email}),
-                                mock_url="http://not-used")
+        result = create_account(None, self._row_create(**{COL_EMAIL: long_email}))
         assert result["status"] == "error"
         assert "長すぎます" in result["message"]
         assert "メールアドレス" in result["message"]
@@ -579,7 +577,7 @@ class TestLengthValidation:
         result = create_account(None, self._row_create(**{
             COL_USERNAME: "a" * (MAX_USERNAME_LEN + 1),
             COL_EMAIL:    long_email,
-        }), mock_url="http://not-used")
+        }))
         assert result["status"] == "error"
         assert "ユーザー名" in result["message"]
         assert "メールアドレス" in result["message"]
@@ -595,7 +593,7 @@ class TestLengthValidation:
             COL_EMAIL:          long_email,
             COL_PERM_REPORT:    "○",
         }
-        result = add_permission(None, row, mock_url="http://not-used")
+        result = add_permission(None, row)
         assert result["status"] == "error"
         assert "長すぎます" in result["message"]
         assert "メールアドレス" in result["message"]
@@ -611,7 +609,7 @@ class TestLengthValidation:
             COL_EMAIL:          long_email,
             COL_PERM_REPORT:    "○",
         }
-        result = remove_permission(None, row, mock_url="http://not-used")
+        result = remove_permission(None, row)
         assert result["status"] == "error"
         assert "長すぎます" in result["message"]
         assert "メールアドレス" in result["message"]
