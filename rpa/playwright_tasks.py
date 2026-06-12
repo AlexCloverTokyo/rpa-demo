@@ -170,63 +170,45 @@ def _verify_account_in_ui(
     """Search the accounts list by exact email and verify all specified fields.
 
     Strategy:
-    1. Call loadAccounts() to guarantee post-operation data is reflected.
-    2. Set search = email + clear status filter → Alpine.js filtered recomputes.
-    3. Wait for filtered to contain exactly 1 row whose email equals *email*.
-    4. Compare each expected field against the row data.
-    5. Clear the search so the next operation starts with a clean state.
+    1. Click the refresh button and wait for loadAccounts() to finish
+       (this guarantees the table reflects the just-completed operation).
+    2. Search by exact email via the search box; wait until the search has
+       been applied (data-search === email), then look up the row.
+    3. Compare username/department/permissions against the row.
+    4. Clear the search bar so the next operation starts clean.
 
     Raises RuntimeError with a descriptive message on any mismatch.
 
-    / 操作後のUI確認。
-    メールで検索 → filtered に完全一致行が1件 → 各フィールド比較。
-    不一致があれば RuntimeError を送出（呼び出し側がエラー結果を返す）。
+    / 操作後のUI確認。最新データへの更新を待つ → 検索バーでメール完全一致を
+    適用 → 該当行をユーザー名・部署・権限について比較。
+    不一致があれば RuntimeError を送出する。
     """
-    # Reload to ensure post-operation data — loadAccounts() is async; page.evaluate awaits it.
-    # loadAccounts()はasync。page.evaluate()はPromiseを自動的にawaitする。
-    page.evaluate("() => window._app.loadAccounts()")
+    _refresh_accounts(page)
+    page.fill("#account-search", email)
 
-    # Apply exact-email search and clear status filter so inactive accounts are visible.
-    # メール完全一致で検索。ステータスフィルタをクリアして無効ユーザーも対象に含める。
-    page.evaluate(
-        "(email) => { window._app.search = email; window._app.filterStatus = ''; window._app.page = 1; }",
-        email,
-    )
-
-    # Wait for exactly 1 row whose email matches exactly (not just substring).
-    # 部分一致ではなく完全一致が1件になるまで待つ。
     page.wait_for_function(
-        "(email) => { const f = window._app.filtered; return f.length === 1 && f[0].email === email; }",
+        """(email) => document.querySelector('#accounts-body').dataset.search === email""",
         arg=email,
         timeout=VERIFY_TIMEOUT_MS,
     )
 
-    row = page.evaluate(
-        "(email) => window._app.filtered.find(a => a.email === email)",
-        email,
-    )
-    if row is None:
+    row = page.locator(f'#accounts-body tr:has(td:nth-child(4) div[title="{_css_escape_attr(email)}"])')
+    if row.count() == 0:
+        page.fill("#account-search", "")
         raise RuntimeError(f"UI確認失敗: {email!r} が一覧に存在しません")
 
-    mismatches: list[str] = []
-    if expected_username is not None and row.get("username") != expected_username:
-        mismatches.append(
-            f"ユーザー名: 期待={expected_username!r} / 実際={row.get('username')!r}"
-        )
-    if expected_department is not None and row.get("department") != expected_department:
-        mismatches.append(
-            f"部署: 期待={expected_department!r} / 実際={row.get('department')!r}"
-        )
-    if expected_permissions is not None:
-        actual_perms = set(row.get("permissions") or [])
-        if actual_perms != expected_permissions:
-            mismatches.append(
-                f"権限: 期待={sorted(expected_permissions)} / 実際={sorted(actual_perms)}"
-            )
+    actual = _read_account_row(row)
+    page.fill("#account-search", "")
 
-    # Clear the search bar after verification for a clean state.
-    # 次の操作のために検索バーをクリアする。
-    page.evaluate("() => { window._app.search = ''; window._app.page = 1; }")
+    mismatches: list[str] = []
+    if expected_username is not None and actual["username"] != expected_username:
+        mismatches.append(f"ユーザー名: 期待={expected_username!r} / 実際={actual['username']!r}")
+    if expected_department is not None and actual["department"] != expected_department:
+        mismatches.append(f"部署: 期待={expected_department!r} / 実際={actual['department']!r}")
+    if expected_permissions is not None and set(actual["permissions"]) != expected_permissions:
+        mismatches.append(
+            f"権限: 期待={sorted(expected_permissions)} / 実際={sorted(actual['permissions'])}"
+        )
 
     if mismatches:
         raise RuntimeError("UI確認失敗: " + " / ".join(mismatches))
