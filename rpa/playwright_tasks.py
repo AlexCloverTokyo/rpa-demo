@@ -112,11 +112,12 @@ def _css_escape_attr(value: str) -> str:
 def _refresh_accounts(page: Page) -> None:
     """Click the refresh button and wait for loadAccounts() to finish updating the table.
     / 更新ボタンをクリックし、一覧データの再読み込み（loadAccounts()完了）を待つ。"""
-    page.wait_for_function("() => !!window._app", timeout=VERIFY_TIMEOUT_MS)
-    before = page.evaluate("() => window._app.accountsVersion")
+    body = page.locator("#accounts-body")
+    before = body.get_attribute("data-accounts-version")
     page.click("#refresh-btn")
     page.wait_for_function(
-        f"() => window._app.accountsVersion > {before}",
+        """({ before }) => document.querySelector('#accounts-body').dataset.accountsVersion !== before""",
+        arg={"before": before},
         timeout=VERIFY_TIMEOUT_MS,
     )
 
