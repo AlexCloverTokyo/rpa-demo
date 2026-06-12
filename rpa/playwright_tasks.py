@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 import httpx
-from playwright.sync_api import Page
+from playwright.sync_api import Locator, Page
 
 from .columns import (
     COL_DEPARTMENT,
@@ -97,6 +97,44 @@ def _wait_chaos_loaded(page: Page) -> None:
     / chaosミドルウェアの初期化完了を待つ。既に完了していればスキップ。"""
     if not page.query_selector("body[data-chaos-loaded='true']"):
         page.wait_for_selector("body[data-chaos-loaded='true']", timeout=CHAOS_LOAD_TIMEOUT_MS)
+
+
+def _css_escape_attr(value: str) -> str:
+    """Escape a value for safe interpolation into a CSS attribute selector (e.g. [title="..."]).
+    / CSS属性セレクタ（[title="..."]等）へ安全に埋め込むためのエスケープ。"""
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+# ---------------------------------------------------------------------------
+# UI synchronization & reading helpers
+# ---------------------------------------------------------------------------
+
+def _refresh_accounts(page: Page) -> None:
+    """Click the refresh button and wait for loadAccounts() to finish updating the table.
+    / 更新ボタンをクリックし、一覧データの再読み込み（loadAccounts()完了）を待つ。"""
+    page.wait_for_function("() => !!window._app", timeout=VERIFY_TIMEOUT_MS)
+    before = page.evaluate("() => window._app.accountsVersion")
+    page.click("#refresh-btn")
+    page.wait_for_function(
+        f"() => window._app.accountsVersion > {before}",
+        timeout=VERIFY_TIMEOUT_MS,
+    )
+
+
+def _read_account_row(row: Locator) -> dict:
+    """Read username/department/permissions/status from a table row.
+    / テーブル行からユーザー名・部署・権限・ステータスを読み取る。"""
+    username = row.locator("td:nth-child(3) div").get_attribute("title")
+    department = row.locator("td:nth-child(5)").inner_text()
+    labels = [l.strip() for l in row.locator("td:nth-child(6) span").all_inner_texts()]
+    permissions = [PERM_COLUMNS[l] for l in labels if l in PERM_COLUMNS]
+    is_active = row.locator("td:nth-child(8) button").get_attribute("aria-checked") == "true"
+    return {
+        "username": username,
+        "department": department,
+        "permissions": permissions,
+        "status": "active" if is_active else "inactive",
+    }
 
 
 # ---------------------------------------------------------------------------
