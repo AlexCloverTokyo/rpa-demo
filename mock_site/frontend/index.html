@@ -200,7 +200,7 @@
                 <th class="px-3 py-2.5 text-center font-medium">操作</th>
               </tr>
             </thead>
-            <tbody id="accounts-body">
+            <tbody id="accounts-body" :data-search="search" :data-accounts-version="accountsVersion">
               <template x-for="row in paginated" :key="row.id">
                 <tr class="border-b border-slate-50 hover:bg-slate-50/70 transition-colors"
                   :class="selected.includes(row.id) ? 'bg-blue-50/40' : ''">
@@ -235,7 +235,7 @@
                   <td class="px-3 py-2.5 text-slate-400 text-xs"
                     x-text="row.created_at ? row.created_at.slice(0,16).replace('T',' ') : '—'"></td>
                   <td class="px-3 py-2.5 text-center">
-                    <button @click="toggleStatus(row)"
+                    <button @click="toggleStatus(row)" role="switch" :aria-checked="row.status === 'active' ? 'true' : 'false'"
                       class="relative inline-flex w-8 h-4 rounded-full transition-colors duration-150 focus:outline-none"
                       :class="row.status === 'active' ? 'bg-green-500' : 'bg-slate-300'">
                       <span class="toggle-knob absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm"
@@ -578,6 +578,7 @@
         chaosOn: false,
         accounts: [],
         search: '',
+        accountsVersion: 0,
         filterStatus: '',
         page: 1,
         perPage: 10,
@@ -669,6 +670,7 @@
           this.accounts = await r.json();
           const maxPage = Math.ceil(this.filtered.length / this.perPage) || 1;
           if (this.page > maxPage) this.page = maxPage;
+          this.accountsVersion++;
         },
 
         openCreate() {
