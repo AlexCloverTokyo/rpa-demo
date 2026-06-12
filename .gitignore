@@ -30,6 +30,9 @@ desktop.ini
 .vscode/
 .idea/
 
+# Git worktrees（開発用、コミット不要）
+.worktrees/
+
 # RPA runtime outputs（実行時生成ファイル、コミット不要）
 rpa/results/*.json
 rpa/results/*.png
