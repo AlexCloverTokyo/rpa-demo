@@ -504,28 +504,28 @@ def remove_permission(
             "message": "権限列がすべて空です",
         }
 
-    existing = _get_account_by_email(email, mock_url)
-    if existing is None:
-        return {"status": "error", "id": _sp_id(row), "email": email, "message": "account_not_found"}
-
-    # Inactive accounts allowed — clearing permissions on disabled accounts is safe.
-    # 非アクティブアカウントでも権限削除は許可する。
-    current_perms = set(existing.get("permissions") or [])
-
-    if to_remove.isdisjoint(current_perms):
-        return {
-            "status":       "skipped",
-            "reason":       "already_removed",
-            "id":           _sp_id(row),
-            "email":        email,
-            "perms_before": sorted(current_perms),
-            "perms_after":  sorted(current_perms),
-        }
-
-    target_perms = current_perms - to_remove
-
     try:
         _wait_chaos_loaded(page)
+
+        existing = _ui_find_account(page, email)
+        if existing is None:
+            return {"status": "error", "id": _sp_id(row), "email": email, "message": "account_not_found"}
+
+        # Inactive accounts allowed — clearing permissions on disabled accounts is safe.
+        # 非アクティブアカウントでも権限削除は許可する。
+        current_perms = set(existing.get("permissions") or [])
+
+        if to_remove.isdisjoint(current_perms):
+            return {
+                "status":       "skipped",
+                "reason":       "already_removed",
+                "id":           _sp_id(row),
+                "email":        email,
+                "perms_before": sorted(current_perms),
+                "perms_after":  sorted(current_perms),
+            }
+
+        target_perms = current_perms - to_remove
 
         page.evaluate("row => window._app.openPermission(row)", existing)
         page.wait_for_selector("#target-username", state="visible", timeout=MODAL_VISIBLE_TIMEOUT_MS)
