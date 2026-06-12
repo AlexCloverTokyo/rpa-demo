@@ -298,12 +298,13 @@ def create_account(
             "message": "入力値が長すぎます: " + " / ".join(length_errors),
         }
 
-    # Idempotency: exact-match lookup before opening the browser form.
-    if _get_account_by_email(email, mock_url) is not None:
-        return {"status": "skipped", "reason": "already_exists", "id": _sp_id(row), "email": email}
-
     try:
         _wait_chaos_loaded(page)
+
+        # Idempotency: exact-match lookup via the UI search bar before opening the form.
+        # 冪等性チェック：フォームを開く前に検索バーで現在の状態を確認する。
+        if _ui_find_account(page, email) is not None:
+            return {"status": "skipped", "reason": "already_exists", "id": _sp_id(row), "email": email}
 
         page.evaluate("showView('create')")
         page.wait_for_selector("#new-username", state="visible", timeout=MODAL_VISIBLE_TIMEOUT_MS)
