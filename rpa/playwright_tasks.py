@@ -397,29 +397,31 @@ def add_permission(
             "message": "権限列がすべて空です",
         }
 
-    existing = _get_account_by_email(email, mock_url)
-    if existing is None:
-        return {"status": "error", "id": _sp_id(row), "email": email, "message": "account_not_found"}
-
-    if existing.get("status") == "inactive":
-        return {"status": "error", "id": _sp_id(row), "email": email, "message": "アカウントが無効です"}
-
-    current_perms = set(existing.get("permissions") or [])
-
-    if new_perms.issubset(current_perms):
-        return {
-            "status":       "skipped",
-            "reason":       "already_granted",
-            "id":           _sp_id(row),
-            "email":        email,
-            "perms_before": sorted(current_perms),
-            "perms_after":  sorted(current_perms),
-        }
-
-    target_perms = current_perms | new_perms
-
     try:
         _wait_chaos_loaded(page)
+
+        # Existence/state checks via UI search (post-load, inside the operation).
+        # UI検索による存在確認・状態判定（ページロード後、操作内で実施）。
+        existing = _ui_find_account(page, email)
+        if existing is None:
+            return {"status": "error", "id": _sp_id(row), "email": email, "message": "account_not_found"}
+
+        if existing.get("status") == "inactive":
+            return {"status": "error", "id": _sp_id(row), "email": email, "message": "アカウントが無効です"}
+
+        current_perms = set(existing.get("permissions") or [])
+
+        if new_perms.issubset(current_perms):
+            return {
+                "status":       "skipped",
+                "reason":       "already_granted",
+                "id":           _sp_id(row),
+                "email":        email,
+                "perms_before": sorted(current_perms),
+                "perms_after":  sorted(current_perms),
+            }
+
+        target_perms = current_perms | new_perms
 
         page.evaluate("row => window._app.openPermission(row)", existing)
         page.wait_for_selector("#target-username", state="visible", timeout=MODAL_VISIBLE_TIMEOUT_MS)
