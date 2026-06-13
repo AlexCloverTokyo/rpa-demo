@@ -97,7 +97,7 @@ def test_update_permissions_replaces_existing(test_client):
     test_client.post("/accounts", json={
         "username": "bob", "email": "b@test.com", "department": "Dev", "permissions": ["report"]
     })
-    resp = test_client.patch("/accounts/bob/permissions", json={"permissions": ["export"]})
+    resp = test_client.patch("/accounts/b@test.com/permissions", json={"permissions": ["export"]})
     assert resp.status_code == 200
     assert resp.json()["permissions"] == ["export"]
     assert "report" not in resp.json()["permissions"]
@@ -108,13 +108,13 @@ def test_update_permissions_clears_when_empty(test_client):
         "username": "carol", "email": "c@test.com", "department": "Dev",
         "permissions": ["read", "write"],
     })
-    resp = test_client.patch("/accounts/carol/permissions", json={"permissions": []})
+    resp = test_client.patch("/accounts/c@test.com/permissions", json={"permissions": []})
     assert resp.status_code == 200
     assert resp.json()["permissions"] == []
 
 
 def test_update_permissions_not_found(test_client):
-    resp = test_client.patch("/accounts/nobody/permissions", json={"permissions": ["read"]})
+    resp = test_client.patch("/accounts/nobody@test.com/permissions", json={"permissions": ["read"]})
     assert resp.status_code == 404
 
 

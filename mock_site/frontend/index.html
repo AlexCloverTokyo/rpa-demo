@@ -698,7 +698,7 @@
         openPermission(row) {
           document.querySelectorAll('.view').forEach(s => s.classList.remove('active'));
           document.getElementById('section-permissions').classList.add('active');
-          this.modal = { open: true, type: 'permissions', data: { username: row.username, permissions: [...(row.permissions || [])] }, errors: {}, submitting: false };
+          this.modal = { open: true, type: 'permissions', data: { username: row.username, email: row.email, permissions: [...(row.permissions || [])] }, errors: {}, submitting: false };
         },
 
         async toggleStatus(row) {
@@ -813,7 +813,7 @@
           }
           this.modal.submitting = true;
           try {
-            const r = await fetch(`${API}/accounts/${d.username}/permissions`, {
+            const r = await fetch(`${API}/accounts/${d.email}/permissions`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ permissions: d.permissions }),

@@ -187,9 +187,9 @@ def delete_account(email: str, db: Session = Depends(get_db)):
     db.commit()
 
 
-@app.patch("/accounts/{username}/permissions")
-def update_permissions(username: str, data: PermissionUpdate, db: Session = Depends(get_db)):
-    acct = db.query(Account).filter(Account.username == username).first()
+@app.patch("/accounts/{email}/permissions")
+def update_permissions(email: str, data: PermissionUpdate, db: Session = Depends(get_db)):
+    acct = db.query(Account).filter(Account.email == email).first()
     if not acct:
         raise HTTPException(status_code=404, detail="Account not found")
     acct.permissions = json.dumps(data.permissions)
