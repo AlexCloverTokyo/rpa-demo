@@ -178,7 +178,7 @@ def test_update_status_to_inactive(test_client):
     test_client.post("/accounts", json={
         "username": "eve", "email": "e@test.com", "department": "Dev", "permissions": []
     })
-    resp = test_client.patch("/accounts/eve/status", json={"status": "inactive"})
+    resp = test_client.patch("/accounts/e@test.com/status", json={"status": "inactive"})
     assert resp.status_code == 200
     assert resp.json()["status"] == "inactive"
 
@@ -187,14 +187,14 @@ def test_update_status_to_active(test_client):
     test_client.post("/accounts", json={
         "username": "frank", "email": "f@test.com", "department": "Dev", "permissions": []
     })
-    test_client.patch("/accounts/frank/status", json={"status": "inactive"})
-    resp = test_client.patch("/accounts/frank/status", json={"status": "active"})
+    test_client.patch("/accounts/f@test.com/status", json={"status": "inactive"})
+    resp = test_client.patch("/accounts/f@test.com/status", json={"status": "active"})
     assert resp.status_code == 200
     assert resp.json()["status"] == "active"
 
 
 def test_update_status_not_found(test_client):
-    resp = test_client.patch("/accounts/nobody/status", json={"status": "inactive"})
+    resp = test_client.patch("/accounts/nobody@test.com/status", json={"status": "inactive"})
     assert resp.status_code == 404
 
 

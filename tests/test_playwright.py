@@ -99,7 +99,7 @@ def inactive_test_user():
     }, timeout=5.0)
     assert resp.status_code == 201, f"inactive_user setup failed: {resp.text}"
     httpx.patch(
-        f"{MOCK_URL}/accounts/{TEST_USERNAME_INACTIVE}/status",
+        f"{MOCK_URL}/accounts/{TEST_EMAIL_INACTIVE}/status",
         json={"status": "inactive"}, timeout=5.0,
     )
     yield TEST_EMAIL_INACTIVE

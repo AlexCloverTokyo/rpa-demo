@@ -167,9 +167,9 @@ def update_account(email: str, data: AccountUpdate, db: Session = Depends(get_db
     return _to_dict(acct)
 
 
-@app.patch("/accounts/{username}/status")
-def update_status(username: str, data: StatusUpdate, db: Session = Depends(get_db)):
-    acct = db.query(Account).filter(Account.username == username).first()
+@app.patch("/accounts/{email}/status")
+def update_status(email: str, data: StatusUpdate, db: Session = Depends(get_db)):
+    acct = db.query(Account).filter(Account.email == email).first()
     if not acct:
         raise HTTPException(status_code=404, detail="Account not found")
     acct.status = data.status
