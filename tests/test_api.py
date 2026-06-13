@@ -133,7 +133,7 @@ def test_update_account(test_client):
     test_client.post("/accounts", json={
         "username": "dave", "email": "old@test.com", "department": "OldDept", "permissions": []
     })
-    resp = test_client.put("/accounts/dave", json={
+    resp = test_client.put("/accounts/old@test.com", json={
         "username": "dave", "email": "new@test.com", "department": "NewDept", "permissions": ["read"]
     })
     assert resp.status_code == 200
@@ -147,7 +147,7 @@ def test_update_account_rename_username(test_client):
     test_client.post("/accounts", json={
         "username": "dave2", "email": "d2@test.com", "department": "Dev", "permissions": []
     })
-    resp = test_client.put("/accounts/dave2", json={
+    resp = test_client.put("/accounts/d2@test.com", json={
         "username": "dave2_renamed", "email": "d2@test.com", "department": "Dev", "permissions": []
     })
     assert resp.status_code == 200
@@ -161,14 +161,14 @@ def test_update_account_email_conflict(test_client):
     test_client.post("/accounts", json={
         "username": "dave4", "email": "d4@test.com", "department": "Dev", "permissions": []
     })
-    resp = test_client.put("/accounts/dave3", json={
+    resp = test_client.put("/accounts/d3@test.com", json={
         "username": "dave3", "email": "d4@test.com", "department": "Dev", "permissions": []
     })
     assert resp.status_code == 409
 
 
 def test_update_account_not_found(test_client):
-    resp = test_client.put("/accounts/nobody", json={
+    resp = test_client.put("/accounts/nobody@test.com", json={
         "username": "nobody", "email": "x@test.com", "department": "X", "permissions": []
     })
     assert resp.status_code == 404

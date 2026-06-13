@@ -150,9 +150,9 @@ def create_account(data: AccountCreate, db: Session = Depends(get_db)):
     return _to_dict(acct)
 
 
-@app.put("/accounts/{username}")
-def update_account(username: str, data: AccountUpdate, db: Session = Depends(get_db)):
-    acct = db.query(Account).filter(Account.username == username).first()
+@app.put("/accounts/{email}")
+def update_account(email: str, data: AccountUpdate, db: Session = Depends(get_db)):
+    acct = db.query(Account).filter(Account.email == email).first()
     if not acct:
         raise HTTPException(status_code=404, detail="Account not found")
     if data.email != acct.email:
