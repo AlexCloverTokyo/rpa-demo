@@ -334,7 +334,7 @@ class TestCsvLifecycle:
             dest = PROCESSED_DIR / "Processing_end_SP-972_request.csv"
             assert dest.exists(), "create+change CSV should go to processed/"
             # Verify permission was applied
-            resp = httpx.get(f"{MOCK_URL}/accounts/runner_b8_user", timeout=5.0)
+            resp = httpx.get(f"{MOCK_URL}/accounts/runner-b8@test.com", timeout=5.0)
             assert resp.status_code == 200
             assert "approver" in resp.json()["permissions"]
         finally:
@@ -414,7 +414,7 @@ class TestCsvLifecycle:
             dest = PROCESSED_DIR / "Processing_end_SP-974_request.csv"
             assert dest.exists(), "create+remove CSV should go to processed/"
             # Verify the API reflects the net result: export only, no report
-            resp = httpx.get(f"{MOCK_URL}/accounts/runner_b10_user", timeout=5.0)
+            resp = httpx.get(f"{MOCK_URL}/accounts/runner-b10@test.com", timeout=5.0)
             assert resp.status_code == 200
             perms = set(resp.json()["permissions"])
             assert "export" in     perms, f"export should remain, got {perms}"

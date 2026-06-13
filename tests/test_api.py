@@ -80,7 +80,7 @@ def test_create_account_duplicate_username_allowed(test_client):
 
 
 def test_get_account_not_found_returns_404(test_client):
-    resp = test_client.get("/accounts/nonexistent")
+    resp = test_client.get("/accounts/nonexistent@test.com")
     assert resp.status_code == 404
 
 
@@ -88,7 +88,7 @@ def test_get_account(test_client):
     test_client.post("/accounts", json={
         "username": "alice", "email": "a@test.com", "department": "Dev", "permissions": ["read"]
     })
-    resp = test_client.get("/accounts/alice")
+    resp = test_client.get("/accounts/a@test.com")
     assert resp.status_code == 200
     assert resp.json()["username"] == "alice"
 

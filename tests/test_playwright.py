@@ -228,7 +228,7 @@ def test_create_account_no_permissions(browser_page):
     ))
     assert result["status"] == "success"
     # Verify via API that user exists with empty permissions
-    resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_USERNAME_NOPERMS}", timeout=5.0)
+    resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_EMAIL_NOPERMS}", timeout=5.0)
     assert resp.status_code == 200
     assert resp.json()["permissions"] == []
 
@@ -312,7 +312,7 @@ def test_add_permission_partial_add(browser_page):
     ))
     assert result["status"] == "success"
 
-    resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_USERNAME_A5}", timeout=5.0)
+    resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_EMAIL_A5}", timeout=5.0)
     assert resp.status_code == 200
     perms = set(resp.json()["permissions"])
     assert "report"   in perms, f"'report' should be preserved, got {perms}"
@@ -332,7 +332,7 @@ def test_add_permission_fresh_user_zero_perms(browser_page, fresh_user_no_perms)
     assert result["perms_before"] == [], f"new user should have no prior perms, got {result['perms_before']}"
     assert "export" in result["perms_after"]
     # Cross-verify via API
-    resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_USERNAME_FRESH}", timeout=5.0)
+    resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_EMAIL_FRESH}", timeout=5.0)
     assert resp.status_code == 200
     assert "export" in resp.json()["permissions"]
 
@@ -349,7 +349,7 @@ def test_add_permission_inactive_account(browser_page, inactive_test_user):
     assert result["status"] == "error"
     assert "無効" in result["message"], f"Expected inactive error, got: {result['message']}"
     # Confirm the account's permissions are unchanged (still [report])
-    resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_USERNAME_INACTIVE}", timeout=5.0)
+    resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_EMAIL_INACTIVE}", timeout=5.0)
     assert "report" in resp.json()["permissions"]
 
 
@@ -388,7 +388,7 @@ def test_remove_permission_success(browser_page, remove_test_user):
     assert "report" not in result["perms_after"]
     assert "export" in     result["perms_after"], "export must be preserved"
     # Cross-verify via API
-    resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_USERNAME_R}", timeout=5.0)
+    resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_EMAIL_R}", timeout=5.0)
     assert resp.status_code == 200
     api_perms = set(resp.json()["permissions"])
     assert "report" not in api_perms, f"API still has 'report': {api_perms}"
@@ -436,7 +436,7 @@ def test_remove_permission_remove_all(browser_page, remove_test_user):
     assert result["status"] == "success"
     assert result["perms_after"] == [], f"Expected [], got {result['perms_after']}"
     # Cross-verify via API
-    resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_USERNAME_R}", timeout=5.0)
+    resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_EMAIL_R}", timeout=5.0)
     assert resp.status_code == 200
     assert resp.json()["permissions"] == [], \
         f"API perms should be empty, got {resp.json()['permissions']}"
@@ -485,7 +485,7 @@ def test_remove_permission_inactive_allowed(browser_page, inactive_test_user):
         f"Expected success for inactive remove, got: {result}"
     assert "report" not in result["perms_after"]
     # Cross-verify via API
-    resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_USERNAME_INACTIVE}", timeout=5.0)
+    resp = httpx.get(f"{MOCK_URL}/accounts/{TEST_EMAIL_INACTIVE}", timeout=5.0)
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "inactive"

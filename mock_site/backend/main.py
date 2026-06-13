@@ -126,9 +126,9 @@ def list_accounts(db: Session = Depends(get_db)):
     return [_to_dict(a) for a in db.query(Account).all()]
 
 
-@app.get("/accounts/{username}")
-def get_account(username: str, db: Session = Depends(get_db)):
-    acct = db.query(Account).filter(Account.username == username).first()
+@app.get("/accounts/{email}")
+def get_account(email: str, db: Session = Depends(get_db)):
+    acct = db.query(Account).filter(Account.email == email).first()
     if not acct:
         raise HTTPException(status_code=404, detail="Account not found")
     return _to_dict(acct)
