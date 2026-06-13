@@ -136,8 +136,6 @@ def get_account(username: str, db: Session = Depends(get_db)):
 
 @app.post("/accounts", status_code=201)
 def create_account(data: AccountCreate, db: Session = Depends(get_db)):
-    if db.query(Account).filter(Account.username == data.username).first():
-        raise HTTPException(status_code=409, detail="Username already exists")
     if db.query(Account).filter(Account.email == data.email).first():
         raise HTTPException(status_code=409, detail="Email already exists")
     acct = Account(

@@ -70,12 +70,13 @@ def test_create_account_duplicate_email_returns_409(test_client):
     resp = test_client.post("/accounts", json={"username": "dup2", "email": "dup@test.com", "department": "Dev", "permissions": []})
     assert resp.status_code == 409
 
-def test_create_account_duplicate_username_returns_409(test_client):
-    # Username is the API's primary lookup key for every /accounts/{username} endpoint,
-    # so duplicate usernames must be rejected to avoid silent misrouting.
+def test_create_account_duplicate_username_allowed(test_client):
+    # username is now a non-unique display name; email is the sole unique business key
+    # (Task 12+ rekeys every /accounts/{...} endpoint from username to email).
+    # / usernameは重複可能な表示名になり、一意キーはemailのみ（Task12以降で全エンドポイントをemailキー化）。
     test_client.post("/accounts", json={"username": "samename", "email": "sn1@test.com", "department": "Dev", "permissions": []})
     resp = test_client.post("/accounts", json={"username": "samename", "email": "sn2@test.com", "department": "Dev", "permissions": []})
-    assert resp.status_code == 409
+    assert resp.status_code == 201
 
 
 def test_get_account_not_found_returns_404(test_client):

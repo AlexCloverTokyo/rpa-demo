@@ -11,7 +11,7 @@ class Account(Base):
     __tablename__ = "accounts"
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, nullable=False, unique=True, index=True)
+    username = Column(String, nullable=False, index=True)
     email = Column(String, unique=True, nullable=False, index=True)
     department = Column(String, nullable=False)
     permissions = Column(String, default="[]")
