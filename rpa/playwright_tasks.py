@@ -2,7 +2,6 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-import httpx
 from playwright.sync_api import Locator, Page
 
 from .columns import (
@@ -29,9 +28,6 @@ CHAOS_LOAD_TIMEOUT_MS    = int(os.environ.get("RPA_CHAOS_LOAD_TIMEOUT_MS",    "1
 MODAL_VISIBLE_TIMEOUT_MS = int(os.environ.get("RPA_MODAL_VISIBLE_TIMEOUT_MS", "5000"))
 STATUS_MSG_TIMEOUT_MS    = int(os.environ.get("RPA_STATUS_MSG_TIMEOUT_MS",    "15000"))
 VERIFY_TIMEOUT_MS        = int(os.environ.get("RPA_VERIFY_TIMEOUT_MS",        "10000"))
-
-# httpx timeout for pre-flight API checks (seconds) / 事前APIチェック用タイムアウト(秒)
-API_REQUEST_TIMEOUT = float(os.environ.get("RPA_API_REQUEST_TIMEOUT", "15.0"))
 
 # ---------------------------------------------------------------------------
 # Backend field length limits — must mirror mock_site/backend/main.py Pydantic models.
@@ -139,21 +135,8 @@ def _read_account_row(row: Locator) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Pre-flight API lookup — exact email match
+# UI-based account lookup — exact email match
 # ---------------------------------------------------------------------------
-
-def _get_account_by_email(email: str, mock_url: str) -> dict | None:
-    """Return the account dict for *email* via exact API lookup, or None.
-    / メールアドレスでAPIを検索し、アカウント情報を返す。存在しない場合はNone。"""
-    try:
-        resp = httpx.get(
-            f"{mock_url}/accounts/by-email/{email}",
-            timeout=API_REQUEST_TIMEOUT,
-        )
-        return resp.json() if resp.status_code == 200 else None
-    except (httpx.RequestError, ValueError):
-        return None
-
 
 def _ui_find_account(page: Page, email: str) -> dict | None:
     """Search the accounts list via the search box and read the matching row.
@@ -254,7 +237,6 @@ def login_browser(page: Page, mock_url: str) -> None:
 def create_account(
     page: Page,
     row: dict,
-    mock_url: str | None = None,
     screenshot_dir: Path | None = None,
 ) -> dict:
     """Create a user account via the mock-site UI, then verify the result in the UI.
@@ -268,9 +250,6 @@ def create_account(
     / アカウント作成後、検索バーでメール完全一致を確認。
     ユーザー名・部署・権限がCSVと一致することを検証する。
     """
-    if mock_url is None:
-        mock_url = os.environ.get("MOCK_SITE_URL", "http://localhost:8000")
-
     missing = _validate_required(row, REQ_CREATE)
     if missing:
         return {
@@ -353,7 +332,6 @@ def create_account(
 def add_permission(
     page: Page,
     row: dict,
-    mock_url: str | None = None,
     screenshot_dir: Path | None = None,
 ) -> dict:
     """Grant additional permissions (union / grant-only), then verify in the UI.
@@ -365,9 +343,6 @@ def add_permission(
     / 権限追加後、検索バーでメール完全一致を確認。
     権限がtarget_perms（現状∪追加分）と一致することを検証する。
     """
-    if mock_url is None:
-        mock_url = os.environ.get("MOCK_SITE_URL", "http://localhost:8000")
-
     missing = _validate_required(row, REQ_ADD)
     if missing:
         return {
@@ -458,7 +433,6 @@ def add_permission(
 def remove_permission(
     page: Page,
     row: dict,
-    mock_url: str | None = None,
     screenshot_dir: Path | None = None,
 ) -> dict:
     """Remove specific permissions (subtraction), then verify in the UI.
@@ -472,9 +446,6 @@ def remove_permission(
     権限がtarget_perms（現状−削除分）と一致することを検証する。
     空配列も正常として検証する。
     """
-    if mock_url is None:
-        mock_url = os.environ.get("MOCK_SITE_URL", "http://localhost:8000")
-
     missing = _validate_required(row, REQ_REMOVE)
     if missing:
         return {

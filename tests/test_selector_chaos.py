@@ -70,5 +70,5 @@ def test_robust_succeeds_under_selector_chaos(fresh_page):
         COL_PERM_REPORT:    "○",
         COL_PERM_EXPORT:    "",
         COL_PERM_APPROVER:  "",
-    }, mock_url=MOCK_URL)
+    })
     assert result["status"] == "success"
