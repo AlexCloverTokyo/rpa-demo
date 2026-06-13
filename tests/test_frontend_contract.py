@@ -36,3 +36,30 @@ def test_accounts_body_has_sync_attributes():
         ':data-accounts-version="accountsVersion">'
         in html
     )
+
+
+def test_edit_button_uses_row_id_for_dom_id():
+    html = _read_index()
+    assert ":id=\"'perm-btn-' + row.id\"" in html
+
+
+def test_open_edit_stores_original_email():
+    html = _read_index()
+    assert "originalEmail: row.email," in html
+
+
+def test_submit_edit_uses_original_email():
+    html = _read_index()
+    assert "const origEmail = d.originalEmail || d.email;" in html
+    assert "`${API}/accounts/${origEmail}`" in html
+
+
+def test_toggle_status_uses_row_email():
+    html = _read_index()
+    assert "`${API}/accounts/${row.email}/status`" in html
+
+
+def test_confirm_delete_uses_email():
+    html = _read_index()
+    assert "`${API}/accounts/${a.email}`" in html
+    assert "`${API}/accounts/${row.email}`" in html

@@ -244,7 +244,7 @@
                   </td>
                   <td class="px-3 py-2.5">
                     <div class="flex items-center justify-center gap-1.5">
-                      <button @click="openEdit(row)" :id="'perm-btn-' + row.username"
+                      <button @click="openEdit(row)" :id="'perm-btn-' + row.id"
                         class="text-xs px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors font-medium">編集</button>
                       <button @click="deleteRow(row)"
                         class="text-xs px-2 py-1 rounded-md bg-red-50 hover:bg-red-100 text-red-500 transition-colors font-medium">削除</button>
@@ -686,6 +686,7 @@
             open: true, type: 'edit',
             data: {
               originalUsername: row.username,
+              originalEmail: row.email,
               username: row.username,
               email: row.email,
               department: row.department,
@@ -703,7 +704,7 @@
 
         async toggleStatus(row) {
           const next = row.status === 'active' ? 'inactive' : 'active';
-          const r = await fetch(`${API}/accounts/${row.username}/status`, {
+          const r = await fetch(`${API}/accounts/${row.email}/status`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: next }),
@@ -775,9 +776,9 @@
           if (!this.validateForm()) return;
           this.modal.submitting = true;
           const d = this.modal.data;
-          const origUser = d.originalUsername || d.username;
+          const origEmail = d.originalEmail || d.email;
           try {
-            const r = await fetch(`${API}/accounts/${origUser}`, {
+            const r = await fetch(`${API}/accounts/${origEmail}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -854,14 +855,14 @@
             this.deleteModal.open = false;
             const ids = [...this.selected];
             const accounts = ids.map(id => this.accounts.find(a => a.id === id)).filter(Boolean);
-            await Promise.all(accounts.map(a => fetch(`${API}/accounts/${a.username}`, { method: 'DELETE' })));
+            await Promise.all(accounts.map(a => fetch(`${API}/accounts/${a.email}`, { method: 'DELETE' })));
             this.selected = [];
             await this.loadAccounts();
             this.showToast('success', `${ids.length}件を削除しました`);
           } else {
             const row = this.deleteModal.row;
             this.deleteModal.open = false;
-            const r = await fetch(`${API}/accounts/${row.username}`, { method: 'DELETE' });
+            const r = await fetch(`${API}/accounts/${row.email}`, { method: 'DELETE' });
             if (r.ok) {
               this.accounts = this.accounts.filter(a => a.id !== row.id);
               const maxPage = Math.ceil(this.filtered.length / this.perPage) || 1;
