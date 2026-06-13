@@ -202,12 +202,12 @@ def test_delete_account(test_client):
     test_client.post("/accounts", json={
         "username": "grace", "email": "g@test.com", "department": "Dev", "permissions": []
     })
-    resp = test_client.delete("/accounts/grace")
+    resp = test_client.delete("/accounts/g@test.com")
     assert resp.status_code == 204
     # Confirm gone
-    assert test_client.get("/accounts/grace").status_code == 404
+    assert test_client.get("/accounts/g@test.com").status_code == 404
 
 
 def test_delete_account_not_found(test_client):
-    resp = test_client.delete("/accounts/nobody")
+    resp = test_client.delete("/accounts/nobody@test.com")
     assert resp.status_code == 404

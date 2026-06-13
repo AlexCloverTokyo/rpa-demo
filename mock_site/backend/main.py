@@ -178,9 +178,9 @@ def update_status(email: str, data: StatusUpdate, db: Session = Depends(get_db))
     return _to_dict(acct)
 
 
-@app.delete("/accounts/{username}", status_code=204)
-def delete_account(username: str, db: Session = Depends(get_db)):
-    acct = db.query(Account).filter(Account.username == username).first()
+@app.delete("/accounts/{email}", status_code=204)
+def delete_account(email: str, db: Session = Depends(get_db)):
+    acct = db.query(Account).filter(Account.email == email).first()
     if not acct:
         raise HTTPException(status_code=404, detail="Account not found")
     db.delete(acct)

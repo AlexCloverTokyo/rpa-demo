@@ -55,11 +55,11 @@ TEST_EMAIL_NOPERMS    = "pt_noperms@test.com"
 @pytest.fixture(scope="module", autouse=True)
 def clean_test_users():
     """Delete all test users before the module runs to ensure a clean state."""
-    for uname in (
-        TEST_USERNAME, TEST_USERNAME_A5, TEST_USERNAME_R,
-        TEST_USERNAME_FRESH, TEST_USERNAME_INACTIVE, TEST_USERNAME_NOPERMS,
+    for email in (
+        TEST_EMAIL, TEST_EMAIL_A5, TEST_EMAIL_R,
+        TEST_EMAIL_FRESH, TEST_EMAIL_INACTIVE, TEST_EMAIL_NOPERMS,
     ):
-        httpx.delete(f"{MOCK_URL}/accounts/{uname}", timeout=5.0)
+        httpx.delete(f"{MOCK_URL}/accounts/{email}", timeout=5.0)
     yield
 
 
@@ -84,7 +84,7 @@ def fresh_user_no_perms():
     }, timeout=5.0)
     assert resp.status_code == 201, f"fresh_user setup failed: {resp.text}"
     yield TEST_EMAIL_FRESH
-    httpx.delete(f"{MOCK_URL}/accounts/{TEST_USERNAME_FRESH}", timeout=5.0)
+    httpx.delete(f"{MOCK_URL}/accounts/{TEST_EMAIL_FRESH}", timeout=5.0)
 
 
 @pytest.fixture(scope="module")
@@ -103,7 +103,7 @@ def inactive_test_user():
         json={"status": "inactive"}, timeout=5.0,
     )
     yield TEST_EMAIL_INACTIVE
-    httpx.delete(f"{MOCK_URL}/accounts/{TEST_USERNAME_INACTIVE}", timeout=5.0)
+    httpx.delete(f"{MOCK_URL}/accounts/{TEST_EMAIL_INACTIVE}", timeout=5.0)
 
 
 # ---------------------------------------------------------------------------

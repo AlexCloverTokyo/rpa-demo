@@ -108,9 +108,9 @@ def _cleanup_sp(sp_id_num: int) -> None:
         shutil.rmtree(err_dir, ignore_errors=True)
 
 
-def _delete_account(username: str) -> None:
+def _delete_account(email: str) -> None:
     try:
-        httpx.delete(f"{MOCK_URL}/accounts/{username}", timeout=5.0)
+        httpx.delete(f"{MOCK_URL}/accounts/{email}", timeout=5.0)
     except Exception:
         pass
 
@@ -284,7 +284,7 @@ class TestCsvLifecycle:
                 "mixed-result CSV (has error row) should go to error/"
         finally:
             _cleanup_sp(970)
-            _delete_account("runner_b6_user")
+            _delete_account("runner-b6@test.com")
 
     def test_multi_row_all_success_goes_to_processed(self):
         """B-7: create user then change permission — both succeed → processed/."""
@@ -310,7 +310,7 @@ class TestCsvLifecycle:
             assert dest.exists(), "all-success CSV should go to processed/"
         finally:
             _cleanup_sp(971)
-            _delete_account("runner_b7_user")
+            _delete_account("runner-b7@test.com")
 
     def test_create_then_change_same_file(self):
         """B-8: create + change in same CSV → processed/, permission applied."""
@@ -339,7 +339,7 @@ class TestCsvLifecycle:
             assert "approver" in resp.json()["permissions"]
         finally:
             _cleanup_sp(972)
-            _delete_account("runner_b8_user")
+            _delete_account("runner-b8@test.com")
 
     def test_all_rows_skipped_goes_to_processed(self):
         """B-9: Every row returns skipped (not error) → processed/.
@@ -350,7 +350,7 @@ class TestCsvLifecycle:
         """
         _ensure_dirs()
         # Pre-create the user via API so the CSV create will be skipped.
-        _delete_account("runner_b9_user")
+        _delete_account("runner-b9@test.com")
         httpx.post(f"{MOCK_URL}/accounts", json={
             "username":   "runner_b9_user",
             "email":      "runner-b9@test.com",
@@ -384,7 +384,7 @@ class TestCsvLifecycle:
                 "all-skipped CSV must NOT go to error/"
         finally:
             _cleanup_sp(973)
-            _delete_account("runner_b9_user")
+            _delete_account("runner-b9@test.com")
 
     def test_create_then_remove_same_file(self):
         """B-10: create new user + remove a permission in same CSV → processed/.
@@ -421,4 +421,4 @@ class TestCsvLifecycle:
             assert "report" not in perms, f"report should be removed, got {perms}"
         finally:
             _cleanup_sp(974)
-            _delete_account("runner_b10_user")
+            _delete_account("runner-b10@test.com")
