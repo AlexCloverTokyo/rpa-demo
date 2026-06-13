@@ -24,7 +24,7 @@ def browser_page():
 @pytest.fixture(scope="module", autouse=True)
 def helper_test_account():
     """Create a known account so _read_account_row has a fixed row to read."""
-    httpx.delete(f"{MOCK_URL}/accounts/{TEST_USERNAME_HELPER}", timeout=5.0)
+    httpx.delete(f"{MOCK_URL}/accounts/{TEST_EMAIL_HELPER}", timeout=5.0)
     resp = httpx.post(f"{MOCK_URL}/accounts", json={
         "username": TEST_USERNAME_HELPER,
         "email": TEST_EMAIL_HELPER,
@@ -33,7 +33,7 @@ def helper_test_account():
     }, timeout=5.0)
     assert resp.status_code == 201, f"setup failed: {resp.text}"
     yield
-    httpx.delete(f"{MOCK_URL}/accounts/{TEST_USERNAME_HELPER}", timeout=5.0)
+    httpx.delete(f"{MOCK_URL}/accounts/{TEST_EMAIL_HELPER}", timeout=5.0)
 
 
 def test_refresh_accounts_changes_version(browser_page):
@@ -105,4 +105,4 @@ def test_ui_find_account_email_with_quote(browser_page):
         assert result is not None
         assert result["email"] == quote_email
     finally:
-        httpx.delete(f"{MOCK_URL}/accounts/quote_test_user", timeout=5.0)
+        httpx.delete(f"{MOCK_URL}/accounts/{quote_email}", timeout=5.0)
